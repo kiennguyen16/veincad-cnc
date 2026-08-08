@@ -44,7 +44,7 @@ For production, configure:
 
 - Frontend: Next.js service.
 - Backend: FastAPI service.
-- Persistent storage: mounted disk/volume for `backend/storage`.
+- Persistent storage: small mounted disk/volume for SQLite plus Cloudflare R2 for uploads, previews, masks, training images, and DXF files.
 - Database: SQLite on the persistent volume for small deployments, or Postgres for larger/multi-user deployments.
 - Storage budget: keep `VEINCAD_STORAGE_QUOTA_GB=9.5` so app data stays below Cloudflare R2's 10 GB free storage allowance.
 
@@ -67,6 +67,12 @@ VEINCAD_SEED_ADMIN_EMAIL=slokermoliti@gmail.com
 VEINCAD_SEED_ADMIN_PASSWORD=<change-this-after-first-login>
 VEINCAD_MAX_UPLOAD_MB=25
 VEINCAD_STORAGE_QUOTA_GB=9.5
+VEINCAD_STORAGE_BACKEND=r2
+VEINCAD_R2_ACCOUNT_ID=<your-cloudflare-account-id>
+VEINCAD_R2_ACCESS_KEY_ID=<your-r2-access-key-id>
+VEINCAD_R2_SECRET_ACCESS_KEY=<your-r2-secret-access-key>
+VEINCAD_R2_BUCKET_NAME=veincad-storage
+VEINCAD_R2_PREFIX=veincad
 VEINCAD_ENABLE_SAM2=false
 ```
 

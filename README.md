@@ -9,6 +9,7 @@ It includes:
 - Secure login with a seeded admin account and HTTP-only session cookies.
 - Persistent uploaded image storage and SQLite metadata tracking.
 - A default 9.5 GB storage quota guard to stay below Cloudflare R2's 10 GB free storage allowance.
+- Optional Cloudflare R2 object storage for hosted uploads, previews, training images, masks, and DXF files.
 - A CAD chat workflow that creates revised DXF versions from natural-language edit requests.
 - A chat-based image configuration workflow that can adjust extraction settings before DXF generation.
 - An MCP server exposing the CAD and tracing tools for external AI agents.
@@ -57,7 +58,7 @@ Password: Test123
 
 ## Deploy
 
-The quickest hosted deployment path is Railway with two services and a persistent backend volume. See `RAILWAY_DEPLOYMENT.md`.
+The quickest hosted deployment path is Railway with two services. For larger uploaded files, enable Cloudflare R2 for object storage while keeping SQLite on the backend host. See `RAILWAY_DEPLOYMENT.md`.
 
 ## Optional SAM 2
 
@@ -117,6 +118,19 @@ backend/storage/uploads/slabs/{folder_id}/{upload_id}.{extension}
 ```
 
 The SQLite database at `backend/storage/veincad.sqlite3` tracks each upload, its folder, original name, generated job, preview, mask, and DXF path. The UI lets you create folders, choose a destination folder before uploading, and browse/open stored uploads later.
+
+For hosted file storage, set:
+
+```text
+VEINCAD_STORAGE_BACKEND=r2
+VEINCAD_R2_ACCOUNT_ID=<cloudflare-account-id>
+VEINCAD_R2_ACCESS_KEY_ID=<r2-access-key-id>
+VEINCAD_R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
+VEINCAD_R2_BUCKET_NAME=veincad-storage
+VEINCAD_R2_PREFIX=veincad
+```
+
+When R2 is enabled, uploads, generated previews, masks, training images, and DXF artifacts are mirrored to the bucket. SQLite still remains the app database for users, folders, sessions, and file metadata.
 
 To avoid accidental Cloudflare R2 overage charges, the backend defaults to a 9.5 GB app storage quota:
 

@@ -1,7 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,10 +11,29 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     max_upload_mb: int = Field(default=25, ge=1, le=200)
     storage_quota_gb: float = Field(default=9.5, gt=0, le=10)
+    storage_backend: Literal["local", "r2"] = "local"
     storage_dir: Path = Path(__file__).resolve().parents[1] / "storage"
     sample_dir: Path = Path(__file__).resolve().parents[1] / "data" / "samples"
     database_path: Path | None = None
     upload_dir: Path | None = None
+    r2_account_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VEINCAD_R2_ACCOUNT_ID", "R2_ACCOUNT_ID"),
+    )
+    r2_access_key_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VEINCAD_R2_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"),
+    )
+    r2_secret_access_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VEINCAD_R2_SECRET_ACCESS_KEY", "R2_SECRET_ACCESS_KEY"),
+    )
+    r2_bucket_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VEINCAD_R2_BUCKET_NAME", "R2_BUCKET_NAME"),
+    )
+    r2_prefix: str = Field(default="veincad", min_length=0, max_length=128)
+    r2_public_base_url: str | None = None
 
     auth_cookie_name: str = "veincad_session"
     auth_cookie_secure: bool = False
@@ -59,6 +79,12 @@ class Settings(BaseSettings):
     def storage_root(self) -> Path:
         """Stable storage-root name for services that should not depend on legacy directory naming."""
         return self.storage_dir
+
+    @property
+    def r2_endpoint_url(self) -> str | None:
+        if not self.r2_account_id:
+            return None
+        return f"https://{self.r2_account_id}.r2.cloudflarestorage.com"
 
     @property
     def training_dir(self) -> Path:

@@ -51,6 +51,7 @@ from app.models import (
 from app.pipeline.processing import ProcessingRequest, load_manifest, process_upload
 from app.pipeline.segmentation import Sam2Segmenter
 from app.pipeline.styles import STYLES
+from app.storage_backend import AppStorage
 from app.training_data import (
     TRAINING_READINESS_THRESHOLD,
     TRAINING_STYLE_IDS,
@@ -97,6 +98,10 @@ def app_settings() -> Settings:
 
 def app_db() -> Database:
     return db
+
+
+def app_storage(config: Annotated[Settings, Depends(app_settings)]) -> AppStorage:
+    return AppStorage(config)
 
 
 @app.get("/health")
@@ -194,13 +199,14 @@ def _require_admin(user: dict) -> None:
 @app.get("/api/v1/admin/summary", response_model=AdminSummary)
 def admin_summary(
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
 ) -> AdminSummary:
     _require_admin(user)
 
     summary = database.admin_summary()
-    storage_bytes = _directory_size(config.storage_dir)
+    storage_bytes = storage.usage_bytes()
     storage_available_bytes = max(config.storage_quota_bytes - storage_bytes, 0)
     storage_usage_percent = (
         round((storage_bytes / config.storage_quota_bytes) * 100, 2)
@@ -209,12 +215,12 @@ def admin_summary(
     )
     return AdminSummary(
         admin_email=ADMIN_EMAIL,
-        job_count=_job_count(config.storage_dir),
+        job_count=storage.job_count(),
         storage_bytes=storage_bytes,
         storage_quota_bytes=config.storage_quota_bytes,
         storage_available_bytes=storage_available_bytes,
         storage_usage_percent=storage_usage_percent,
-        storage_path=str(config.storage_dir),
+        storage_path=storage.description,
         **summary,
     )
 
@@ -247,6 +253,7 @@ async def create_training_sample(
     label_image: Annotated[UploadFile, File()],
     style_id: Annotated[str, Form()],
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
     notes: Annotated[str | None, Form()] = None,
@@ -318,6 +325,8 @@ async def create_training_sample(
             status="uploaded",
             created_by=user["id"],
         )
+        storage.upload_file(config.storage_root / stored_files.source_path)
+        storage.upload_file(config.storage_root / stored_files.label_path)
     except Exception:
         sample_dir = config.training_dir / style_id / sample_id
         if sample_dir.exists() and stored_files is not None:
@@ -383,9 +392,10 @@ def get_training_sample_image(
     sample_id: str,
     image_kind: str,
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
-) -> FileResponse:
+):
     _require_admin(user)
     record = database.get_training_sample(sample_id=sample_id)
     if record is None:
@@ -394,10 +404,10 @@ def get_training_sample_image(
         image_path = resolve_training_file(config.storage_root, record, image_kind)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if not image_path.is_file():
+    if not storage.is_remote and not image_path.is_file():
         raise HTTPException(status_code=404, detail="Training image file not found.")
     media_type = mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
-    return FileResponse(image_path, media_type=media_type)
+    return storage.response_for_path(image_path, media_type=media_type)
 
 
 @app.delete("/api/training/samples/{sample_id}", response_model=MessageResponse)
@@ -405,6 +415,7 @@ def get_training_sample_image(
 def delete_training_sample(
     sample_id: str,
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
 ) -> MessageResponse:
@@ -413,6 +424,7 @@ def delete_training_sample(
     if record is None:
         raise HTTPException(status_code=404, detail="Training sample not found.")
     try:
+        storage.delete_prefix(f"training/{record['style_id']}/{record['id']}/")
         remove_training_sample_files(config.storage_root, record)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -457,14 +469,26 @@ def list_samples(
 @app.get("/api/v1/uploads", response_model=list[UploadRecord])
 def list_uploads(
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
     folder_id: str | None = None,
 ) -> list[UploadRecord]:
     records = database.list_uploads(user_id=user["id"], folder_id=folder_id)
     for item in records:
-        item["source_image_url"] = _storage_url(config.storage_dir, Path(item["file_path"]))
+        item["source_image_url"] = _storage_url(storage, Path(item["file_path"]))
     return [UploadRecord(**item) for item in records]
+
+
+@app.get("/api/storage/files/{storage_key:path}")
+@app.get("/api/v1/storage/files/{storage_key:path}")
+def get_storage_file(
+    storage_key: str,
+    storage: Annotated[AppStorage, Depends(app_storage)],
+    user: Annotated[dict, Depends(current_user)],
+):
+    _ = user
+    return storage.response_for_path(storage_key)
 
 
 @app.get("/api/storage/folders", response_model=list[StorageFolder])
@@ -512,6 +536,7 @@ def configure_processing(
 async def process_image(
     file: Annotated[UploadFile, File()],
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
     style_id: Annotated[str, Form()] = "centerline",
@@ -549,6 +574,7 @@ async def process_image(
         content_type=file.content_type,
         user_id=user["id"],
     )
+    storage.upload_file(stored_path, content_type=file.content_type)
 
     request = ProcessingRequest(
         style_id=style_id,
@@ -579,15 +605,16 @@ async def process_image(
         mask_path=manifest.mask_path,
         dxf_path=manifest.dxf_path,
     )
+    storage.upload_tree(config.storage_dir / "jobs" / manifest.job_id)
 
     return ProcessResponse(
         job_id=manifest.job_id,
         style_id=manifest.style_id,
-        preview_url=f"/storage/jobs/{manifest.job_id}/preview.png",
-        mask_url=f"/storage/jobs/{manifest.job_id}/mask.png",
+        preview_url=_storage_url(storage, manifest.preview_path),
+        mask_url=_storage_url(storage, manifest.mask_path),
         dxf_url=f"/api/v1/jobs/{manifest.job_id}/dxf",
         upload_id=upload_id,
-        source_image_url=_storage_url(config.storage_dir, stored_path),
+        source_image_url=_storage_url(storage, stored_path),
         metrics=manifest.metrics,
     )
 
@@ -596,6 +623,7 @@ async def process_image(
 @app.post("/api/v1/process-sample", response_model=ProcessResponse)
 async def process_sample(
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     user: Annotated[dict, Depends(current_user)],
     sample_name: Annotated[str, Form()],
     style_id: Annotated[str, Form()] = "centerline",
@@ -636,12 +664,13 @@ async def process_sample(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    storage.upload_tree(config.storage_dir / "jobs" / manifest.job_id)
 
     return ProcessResponse(
         job_id=manifest.job_id,
         style_id=manifest.style_id,
-        preview_url=f"/storage/jobs/{manifest.job_id}/preview.png",
-        mask_url=f"/storage/jobs/{manifest.job_id}/mask.png",
+        preview_url=_storage_url(storage, manifest.preview_path),
+        mask_url=_storage_url(storage, manifest.mask_path),
         dxf_url=f"/api/v1/jobs/{manifest.job_id}/dxf",
         metrics=manifest.metrics,
     )
@@ -652,16 +681,17 @@ async def process_sample(
 def get_job(
     job_id: str,
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     user: Annotated[dict, Depends(current_user)],
 ) -> ProcessResponse:
-    manifest = load_manifest(config, job_id)
+    manifest = _load_job_manifest(config, storage, job_id)
     if manifest is None:
         raise HTTPException(status_code=404, detail="Job not found.")
     return ProcessResponse(
         job_id=manifest.job_id,
         style_id=manifest.style_id,
-        preview_url=f"/storage/jobs/{manifest.job_id}/preview.png",
-        mask_url=f"/storage/jobs/{manifest.job_id}/mask.png",
+        preview_url=_storage_url(storage, manifest.preview_path),
+        mask_url=_storage_url(storage, manifest.mask_path),
         dxf_url=f"/api/v1/jobs/{manifest.job_id}/dxf",
         metrics=manifest.metrics,
     )
@@ -672,19 +702,20 @@ def get_job(
 def download_dxf(
     job_id: str,
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
-) -> FileResponse:
-    manifest = load_manifest(config, job_id)
+):
+    manifest = _load_job_manifest(config, storage, job_id)
     if manifest is None:
         raise HTTPException(status_code=404, detail="Job not found.")
 
     latest_revision = database.latest_dxf_revision(job_id=job_id, user_id=user["id"])
     path = Path(latest_revision["dxf_path"]) if latest_revision else Path(manifest.dxf_path)
-    if not path.exists():
+    if not storage.is_remote and not path.exists():
         raise HTTPException(status_code=404, detail="DXF output not found.")
 
-    return FileResponse(
+    return storage.response_for_path(
         path,
         media_type="application/dxf",
         filename=f"veincad-{job_id}.dxf",
@@ -696,18 +727,21 @@ def download_dxf(
 async def modify_dxf(
     payload: DxfModifyRequest,
     config: Annotated[Settings, Depends(app_settings)],
+    storage: Annotated[AppStorage, Depends(app_storage)],
     database: Annotated[Database, Depends(app_db)],
     user: Annotated[dict, Depends(current_user)],
 ) -> DxfModifyResponse:
     if not payload.message.strip():
         raise HTTPException(status_code=400, detail="Please enter a CAD instruction.")
 
-    manifest = load_manifest(config, payload.job_id)
+    manifest = _load_job_manifest(config, storage, payload.job_id)
     if manifest is None:
         raise HTTPException(status_code=404, detail="Job not found.")
 
     latest_revision = database.latest_dxf_revision(job_id=payload.job_id, user_id=user["id"])
     source_dxf = Path(latest_revision["dxf_path"]) if latest_revision else Path(manifest.dxf_path)
+    if storage.is_remote and not source_dxf.exists():
+        storage.download_file(storage.key_for_path(source_dxf), source_dxf)
     if not source_dxf.exists():
         raise HTTPException(status_code=404, detail="DXF file not found.")
     _ensure_storage_quota(
@@ -737,6 +771,12 @@ async def modify_dxf(
         action_summary = "Clarification requested"
         revision_url = f"/api/v1/jobs/{payload.job_id}/dxf"
         preview_url = None
+
+    if actions:
+        storage.upload_file(dxf_path, content_type="application/dxf")
+        if preview_path is not None:
+            storage.upload_file(preview_path)
+        preview_url = _storage_url(storage, preview_path) if preview_path is not None else None
 
     database.record_dxf_message(
         job_id=payload.job_id,
@@ -808,16 +848,36 @@ def _folder_upload_dir(upload_dir: Path | None, folder_id: str | None) -> Path |
     return upload_dir / folder_id
 
 
-def _storage_url(storage_dir: Path, path: Path) -> str:
+def _load_job_manifest(config: Settings, storage: AppStorage, job_id: str):
+    manifest = load_manifest(config, job_id)
+    if manifest is None and storage.is_remote:
+        manifest_path = config.storage_dir / "jobs" / job_id / "manifest.json"
+        if storage.download_file(f"jobs/{job_id}/manifest.json", manifest_path):
+            manifest = load_manifest(config, job_id)
+    if manifest is None:
+        return None
+
+    job_dir = config.storage_dir / "jobs" / manifest.job_id
+    return manifest.model_copy(
+        update={
+            "preview_path": str(job_dir / "preview.png"),
+            "mask_path": str(job_dir / "mask.png"),
+            "dxf_path": str(job_dir / "veincad-output.dxf"),
+        }
+    )
+
+
+def _storage_url(storage: AppStorage, path: Path | str | None) -> str | None:
+    if path is None:
+        return None
     try:
-        relative = path.resolve().relative_to(storage_dir.resolve())
+        return storage.url_for_path(path)
     except ValueError:
         return ""
-    return f"/storage/{relative.as_posix()}"
 
 
 def _ensure_storage_quota(config: Settings, *, additional_bytes: int, operation: str) -> None:
-    storage_bytes = _directory_size(config.storage_dir)
+    storage_bytes = AppStorage(config).usage_bytes()
     projected_bytes = storage_bytes + max(additional_bytes, 0)
     if projected_bytes <= config.storage_quota_bytes:
         return
@@ -841,23 +901,6 @@ def _format_storage_bytes(value: int) -> str:
     if value >= 1_000:
         return f"{value / 1_000:.1f} KB"
     return f"{value} B"
-
-
-def _directory_size(path: Path) -> int:
-    total = 0
-    if not path.exists():
-        return total
-    for item in path.rglob("*"):
-        if item.is_file():
-            total += item.stat().st_size
-    return total
-
-
-def _job_count(storage_dir: Path) -> int:
-    jobs_dir = storage_dir / "jobs"
-    if not jobs_dir.exists():
-        return 0
-    return sum(1 for item in jobs_dir.iterdir() if item.is_dir())
 
 
 def _resolve_sample_path(sample_dir: Path, sample_name: str) -> Path | None:
