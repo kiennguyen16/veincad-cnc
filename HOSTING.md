@@ -30,6 +30,8 @@ named Tunnel, and map `app.yourdomain.com` to `http://127.0.0.1:3000`.
 
 Use a host that supports a persistent Python backend because this app processes images, stores uploads, generates DXF files, and may call an AI model.
 
+For the first hosted version, use Railway with two services and a persistent backend volume. The exact checklist is in `RAILWAY_DEPLOYMENT.md`.
+
 Good options:
 
 | Provider | Fit | Notes |

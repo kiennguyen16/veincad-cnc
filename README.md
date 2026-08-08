@@ -55,6 +55,10 @@ Email: slokermoliti@gmail.com
 Password: Test123
 ```
 
+## Deploy
+
+The quickest hosted deployment path is Railway with two services and a persistent backend volume. See `RAILWAY_DEPLOYMENT.md`.
+
 ## Optional SAM 2
 
 The app runs without SAM 2. To enable it later, install the optional AI dependencies, provide a SAM 2 checkpoint/config or Hugging Face model name, and set `VEINCAD_ENABLE_SAM2=true` in `backend/.env`.

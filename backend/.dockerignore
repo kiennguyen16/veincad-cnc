@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+.pytest_cache
+.pytest-tmp*
+.verification*
+__pycache__
+*.py[cod]
+storage

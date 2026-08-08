@@ -14,6 +14,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
+import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   TrainingSample,
@@ -244,10 +245,10 @@ export default function TrainingPage() {
           >
             {language === "en" ? "VI" : "EN"}
           </button>
-          <a className="ghostButton trainingBackButton" href="/">
+          <Link className="ghostButton trainingBackButton" href="/">
             <ArrowLeft size={17} />
             {t.workspace}
-          </a>
+          </Link>
         </div>
       </header>
 

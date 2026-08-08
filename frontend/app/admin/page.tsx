@@ -17,6 +17,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { AdminSummary, User, createAdminUser, getAdminSummary, getMe } from "@/lib/api";
 
@@ -105,10 +106,10 @@ export default function AdminPage() {
             <p>VeinCAD CNC control room</p>
           </div>
         </div>
-        <a className="ghostButton adminBackButton" href="/">
+        <Link className="ghostButton adminBackButton" href="/">
           <ArrowLeft size={17} />
           Workspace
-        </a>
+        </Link>
       </header>
 
       {isLoading && (
@@ -125,9 +126,9 @@ export default function AdminPage() {
             <h2>{isAdmin ? "Admin data unavailable" : "Access denied"}</h2>
             <p>{error}</p>
             {!user && (
-              <a className="primaryButton adminInlineButton" href="/">
+              <Link className="primaryButton adminInlineButton" href="/">
                 Sign in
-              </a>
+              </Link>
             )}
           </div>
         </section>

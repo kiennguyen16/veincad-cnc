@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle2, CircleAlert, LoaderCircle, Mail } from "lucide-react";
+import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { requestPasswordReset } from "@/lib/api";
 
@@ -73,10 +74,10 @@ export default function ForgotPasswordPage() {
             {isSubmitting ? "Sending" : "Send reset link"}
           </button>
 
-          <a className="authBackLink" href="/">
+          <Link className="authBackLink" href="/">
             <ArrowLeft size={16} />
             Back to sign in
-          </a>
+          </Link>
         </form>
       </section>
     </main>
