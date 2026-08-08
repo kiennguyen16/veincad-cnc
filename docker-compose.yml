@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      VEINCAD_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      VEINCAD_ENABLE_SAM2: "false"
+      VEINCAD_SEED_ADMIN_EMAIL: slokermoliti@gmail.com
+      VEINCAD_SEED_ADMIN_PASSWORD: Test123
+      VEINCAD_AUTH_COOKIE_SECURE: "false"
+      # GEMINI_API_KEY: add_this_when_enabling_ai_cad_chat
+      VEINCAD_GEMINI_MODEL: gemini-2.5-flash-lite
+      # OPENAI_API_KEY: optional_openai_fallback
+      VEINCAD_OPENAI_MODEL: gpt-5.4-nano
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/storage:/app/storage
+      - ./backend/data/samples:/app/data/samples:ro
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "veincad-cnc": {
+      "command": "C:\\Users\\kienc\\OneDrive\\Documents\\CNC drawing\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "app.mcp_server"],
+      "cwd": "C:\\Users\\kienc\\OneDrive\\Documents\\CNC drawing\\backend",
+      "env": {
+        "VEINCAD_GEMINI_MODEL": "gemini-2.5-flash-lite",
+        "GEMINI_API_KEY": "paste-your-key-here"
+      }
+    }
+  }
+}

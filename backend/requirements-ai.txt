@@ -1,0 +1,5 @@
+# Optional SAM 2 support. Install only when you have a suitable PyTorch/SAM 2 environment.
+torch
+torchvision
+huggingface_hub
+git+https://github.com/facebookresearch/sam2.git

@@ -1,0 +1,135 @@
+# Hosting & Domain Guide
+
+## Free Temporary Public Demo
+
+Cloudflare Quick Tunnel can expose the complete local application through one
+temporary HTTPS URL without opening router ports or creating a Cloudflare
+account. VeinCAD's Next.js service proxies `/api/*` and `/storage/*` to the
+local FastAPI service, so authentication cookies, uploads, previews, and DXF
+downloads all use the same public origin.
+
+Start the backend and frontend, then run:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:3000 --no-autoupdate
+```
+
+Cloudflare prints a random `https://...trycloudflare.com` address. This option
+is for testing only: the URL changes after restart, the computer must remain
+awake and online, there is no uptime guarantee, and Quick Tunnels are limited
+to 200 concurrent in-flight requests.
+
+Before sharing a tunnel beyond trusted testers, replace the seeded `Test123`
+administrator password with a strong unique password.
+
+For a stable domain while still running the application on this computer,
+create a free Cloudflare account, add the domain to Cloudflare DNS, create a
+named Tunnel, and map `app.yourdomain.com` to `http://127.0.0.1:3000`.
+
+## Recommended Low-Cost Setup
+
+Use a host that supports a persistent Python backend because this app processes images, stores uploads, generates DXF files, and may call an AI model.
+
+Good options:
+
+| Provider | Fit | Notes |
+| :--- | :--- | :--- |
+| Render | Simple full-stack deployment | Free or low-cost services. Free services may sleep after inactivity. |
+| Railway | Container-friendly deployment | Good for Docker and persistent volumes. Usage-based pricing. |
+| Hugging Face Spaces | ML/demo deployment | Useful for image-processing demos. Public/private and secret settings need care. |
+
+For production, configure:
+
+- Frontend: Next.js service.
+- Backend: FastAPI service.
+- Persistent storage: mounted disk/volume for `backend/storage`.
+- Database: SQLite on the persistent volume for small deployments, or Postgres for larger/multi-user deployments.
+
+## Required Environment Variables
+
+Frontend:
+
+```text
+# Recommended single-origin deployment
+NEXT_PUBLIC_API_BASE_URL=
+API_PROXY_TARGET=http://127.0.0.1:8000
+```
+
+Backend:
+
+```text
+VEINCAD_CORS_ORIGINS=https://app.yourdomain.com
+VEINCAD_AUTH_COOKIE_SECURE=true
+VEINCAD_SEED_ADMIN_EMAIL=slokermoliti@gmail.com
+VEINCAD_SEED_ADMIN_PASSWORD=<change-this-after-first-login>
+VEINCAD_MAX_UPLOAD_MB=25
+VEINCAD_ENABLE_SAM2=false
+```
+
+Optional AI CAD chat:
+
+```text
+GEMINI_API_KEY=<your-gemini-api-key>
+VEINCAD_GEMINI_MODEL=gemini-2.5-flash-lite
+
+# Optional OpenAI fallback
+OPENAI_API_KEY=<your-openai-api-key>
+VEINCAD_OPENAI_MODEL=gpt-5.4-nano
+```
+
+For the CAD/chat workload, Gemini 2.5 Flash-Lite is the lowest-cost default configured in the app. The backend also works without an API key for simple deterministic edits.
+
+## Domain DNS Records
+
+Do not guess the final target. Add the custom domain inside your hosting provider first, then copy the exact DNS value it gives you.
+
+### Recommended Subdomain Setup
+
+Use two subdomains:
+
+```text
+app.yourdomain.com -> frontend
+api.yourdomain.com -> backend
+```
+
+Typical DNS records:
+
+```text
+Type:  CNAME
+Name:  app
+Value: your-frontend-host.onrender.com
+TTL:   Auto
+```
+
+```text
+Type:  CNAME
+Name:  api
+Value: your-backend-host.onrender.com
+TTL:   Auto
+```
+
+Then set:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com
+VEINCAD_CORS_ORIGINS=https://app.yourdomain.com
+```
+
+### Root Domain Setup
+
+If you want `yourdomain.com` instead of `app.yourdomain.com`, follow the host's custom domain panel.
+
+If the host gives a static IP:
+
+```text
+Type:  A
+Name:  @
+Value: 123.45.67.89
+TTL:   Auto
+```
+
+If the host gives a CNAME-like target for root/apex, use your DNS provider's `ALIAS`, `ANAME`, or flattened CNAME feature if available.
+
+## Free Hosting Note
+
+Free tiers are useful for testing, but image uploads and generated DXF files require persistence. If the host does not include persistent disks on the free tier, use external object storage such as Supabase Storage, S3, or Cloudflare R2 before trusting it with real customer work.
