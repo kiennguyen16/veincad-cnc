@@ -4,6 +4,7 @@ services:
       context: ./backend
     environment:
       VEINCAD_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      VEINCAD_STORAGE_QUOTA_GB: "9.5"
       VEINCAD_ENABLE_SAM2: "false"
       VEINCAD_SEED_ADMIN_EMAIL: slokermoliti@gmail.com
       VEINCAD_SEED_ADMIN_PASSWORD: Test123

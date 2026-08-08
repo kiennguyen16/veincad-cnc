@@ -110,6 +110,38 @@ def test_training_sample_admin_lifecycle(training_client) -> None:
     assert not (settings.training_dir / "centerline" / sample["id"]).exists()
 
 
+def test_admin_summary_reports_storage_quota(training_client) -> None:
+    client, _, settings, admin_token, _ = training_client
+    client.cookies.set(settings.auth_cookie_name, admin_token)
+
+    response = client.get("/api/v1/admin/summary")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["storage_quota_bytes"] == settings.storage_quota_bytes
+    assert payload["storage_available_bytes"] >= 0
+    assert 0 <= payload["storage_usage_percent"] <= 100
+
+
+def test_training_upload_rejects_when_storage_quota_would_be_exceeded(training_client) -> None:
+    client, _, settings, admin_token, _ = training_client
+    settings.storage_quota_gb = 0.000001
+    client.cookies.set(settings.auth_cookie_name, admin_token)
+
+    response = client.post(
+        "/api/v1/training/samples",
+        data={"style_id": "centerline"},
+        files={
+            "source_image": ("source.png", _png_bytes(190), "image/png"),
+            "label_image": ("label.png", _png_bytes(255), "image/png"),
+        },
+    )
+
+    assert response.status_code == 413
+    assert "Storage quota would be exceeded" in response.json()["detail"]
+    assert list(settings.training_dir.rglob("*")) == []
+
+
 def test_training_endpoints_require_admin(training_client) -> None:
     client, _, settings, _, regular_token = training_client
 

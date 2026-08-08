@@ -67,6 +67,13 @@ Update the core image upload module to ensure uploaded slab tile images are prop
      - preview_path
      - mask_path
      - dxf_path
+
+4. Free-Tier Storage Guard:
+   - Enforce a configurable storage quota with `VEINCAD_STORAGE_QUOTA_GB`.
+   - Default the quota to `9.5` GB so the application stays below Cloudflare R2's 10 GB free storage allowance.
+   - Reject uploads, training samples, sample-processing jobs, and DXF revisions before writing files if the projected storage use would exceed the quota.
+   - Show current storage use, quota, percent used, and remaining free space in the admin page.
+   - Do not raise the quota to `10` GB or higher unless the owner explicitly accepts possible overage charges.
 ```
 
 ### Requirement 3: Iterative DXF Modification via AI Chat
@@ -156,6 +163,7 @@ NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com
 VEINCAD_CORS_ORIGINS=https://app.yourdomain.com
 VEINCAD_ENABLE_SAM2=false
 VEINCAD_MAX_UPLOAD_MB=25
+VEINCAD_STORAGE_QUOTA_GB=9.5
 
 AUTH_SECRET=<strong-random-secret>
 SEED_ADMIN_EMAIL=slokermoliti@gmail.com

@@ -230,7 +230,12 @@ export default function AdminPage() {
               label="DXF Revisions"
               value={summary.dxf_revision_count.toLocaleString()}
             />
-            <AdminStat icon={<HardDrive size={20} />} label="Storage" value={formatBytes(summary.storage_bytes)} />
+            <AdminStat
+              icon={<HardDrive size={20} />}
+              label="Storage"
+              value={`${formatBytes(summary.storage_bytes)} / ${formatBytes(summary.storage_quota_bytes)}`}
+              detail={`${summary.storage_usage_percent.toFixed(1)}% used, ${formatBytes(summary.storage_available_bytes)} free`}
+            />
           </section>
 
           <section className="adminPanel">
@@ -277,16 +282,19 @@ function AdminStat({
   icon,
   label,
   value,
+  detail,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  detail?: string;
 }) {
   return (
     <article className="adminStatCard">
       <div>{icon}</div>
       <span>{label}</span>
       <strong>{value}</strong>
+      {detail && <small>{detail}</small>}
     </article>
   );
 }

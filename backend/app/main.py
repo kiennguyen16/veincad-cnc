@@ -87,6 +87,8 @@ app.mount("/sample_images", StaticFiles(directory=settings.sample_dir), name="sa
 
 segmenter = Sam2Segmenter(settings)
 ADMIN_EMAIL = "slokermoliti@gmail.com"
+JOB_STORAGE_RESERVE_BYTES = 512 * 1024 * 1024
+DXF_REVISION_STORAGE_RESERVE_BYTES = 64 * 1024 * 1024
 
 
 def app_settings() -> Settings:
@@ -198,10 +200,20 @@ def admin_summary(
     _require_admin(user)
 
     summary = database.admin_summary()
+    storage_bytes = _directory_size(config.storage_dir)
+    storage_available_bytes = max(config.storage_quota_bytes - storage_bytes, 0)
+    storage_usage_percent = (
+        round((storage_bytes / config.storage_quota_bytes) * 100, 2)
+        if config.storage_quota_bytes > 0
+        else 0
+    )
     return AdminSummary(
         admin_email=ADMIN_EMAIL,
         job_count=_job_count(config.storage_dir),
-        storage_bytes=_directory_size(config.storage_dir),
+        storage_bytes=storage_bytes,
+        storage_quota_bytes=config.storage_quota_bytes,
+        storage_available_bytes=storage_available_bytes,
+        storage_usage_percent=storage_usage_percent,
         storage_path=str(config.storage_dir),
         **summary,
     )
@@ -255,6 +267,11 @@ async def create_training_sample(
             status_code=413,
             detail=f"Each training image must be no larger than {config.max_upload_mb} MB.",
         )
+    _ensure_storage_quota(
+        config,
+        additional_bytes=len(source_bytes) + len(label_bytes),
+        operation="training sample upload",
+    )
 
     clean_notes = notes.strip() if notes and notes.strip() else None
     if clean_notes and len(clean_notes) > 4000:
@@ -511,6 +528,11 @@ async def process_image(
         raise HTTPException(status_code=400, detail="Please upload an image file.")
     if len(image_bytes) > config.max_upload_bytes:
         raise HTTPException(status_code=413, detail=f"Upload limit is {config.max_upload_mb} MB.")
+    _ensure_storage_quota(
+        config,
+        additional_bytes=len(image_bytes) + JOB_STORAGE_RESERVE_BYTES,
+        operation="image processing",
+    )
 
     resolved_folder_id = _resolve_folder_id(database, user["id"], folder_id)
     upload_id, stored_path = _persist_upload(
@@ -587,6 +609,11 @@ async def process_sample(
     sample_path = _resolve_sample_path(config.sample_dir, sample_name)
     if sample_path is None:
         raise HTTPException(status_code=404, detail="Sample image not found.")
+    _ensure_storage_quota(
+        config,
+        additional_bytes=JOB_STORAGE_RESERVE_BYTES,
+        operation="sample processing",
+    )
 
     request = ProcessingRequest(
         style_id=style_id,
@@ -683,6 +710,11 @@ async def modify_dxf(
     source_dxf = Path(latest_revision["dxf_path"]) if latest_revision else Path(manifest.dxf_path)
     if not source_dxf.exists():
         raise HTTPException(status_code=404, detail="DXF file not found.")
+    _ensure_storage_quota(
+        config,
+        additional_bytes=DXF_REVISION_STORAGE_RESERVE_BYTES,
+        operation="DXF revision",
+    )
 
     actions, assistant_message = await run_in_threadpool(plan_dxf_actions, payload.message, config)
     database.record_dxf_message(job_id=payload.job_id, user_id=user["id"], role="user", content=payload.message)
@@ -782,6 +814,33 @@ def _storage_url(storage_dir: Path, path: Path) -> str:
     except ValueError:
         return ""
     return f"/storage/{relative.as_posix()}"
+
+
+def _ensure_storage_quota(config: Settings, *, additional_bytes: int, operation: str) -> None:
+    storage_bytes = _directory_size(config.storage_dir)
+    projected_bytes = storage_bytes + max(additional_bytes, 0)
+    if projected_bytes <= config.storage_quota_bytes:
+        return
+    available_bytes = max(config.storage_quota_bytes - storage_bytes, 0)
+    raise HTTPException(
+        status_code=413,
+        detail=(
+            f"Storage quota would be exceeded for {operation}. "
+            f"Available: {_format_storage_bytes(available_bytes)}. "
+            f"Quota: {_format_storage_bytes(config.storage_quota_bytes)}. "
+            "Delete old uploads/jobs or raise VEINCAD_STORAGE_QUOTA_GB only if you accept possible storage charges."
+        ),
+    )
+
+
+def _format_storage_bytes(value: int) -> str:
+    if value >= 1_000_000_000:
+        return f"{value / 1_000_000_000:.2f} GB"
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.1f} MB"
+    if value >= 1_000:
+        return f"{value / 1_000:.1f} KB"
+    return f"{value} B"
 
 
 def _directory_size(path: Path) -> int:

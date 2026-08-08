@@ -44,6 +44,7 @@ For production, configure:
 - Backend: FastAPI service.
 - Persistent storage: mounted disk/volume for `backend/storage`.
 - Database: SQLite on the persistent volume for small deployments, or Postgres for larger/multi-user deployments.
+- Storage budget: keep `VEINCAD_STORAGE_QUOTA_GB=9.5` so app data stays below Cloudflare R2's 10 GB free storage allowance.
 
 ## Required Environment Variables
 
@@ -63,6 +64,7 @@ VEINCAD_AUTH_COOKIE_SECURE=true
 VEINCAD_SEED_ADMIN_EMAIL=slokermoliti@gmail.com
 VEINCAD_SEED_ADMIN_PASSWORD=<change-this-after-first-login>
 VEINCAD_MAX_UPLOAD_MB=25
+VEINCAD_STORAGE_QUOTA_GB=9.5
 VEINCAD_ENABLE_SAM2=false
 ```
 
@@ -133,3 +135,11 @@ If the host gives a CNAME-like target for root/apex, use your DNS provider's `AL
 ## Free Hosting Note
 
 Free tiers are useful for testing, but image uploads and generated DXF files require persistence. If the host does not include persistent disks on the free tier, use external object storage such as Supabase Storage, S3, or Cloudflare R2 before trusting it with real customer work.
+
+Cloudflare R2 may show `$0/month` but still require a card because overage rates apply after the included allowance. Keep the app quota below the free 10 GB allowance:
+
+```text
+VEINCAD_STORAGE_QUOTA_GB=9.5
+```
+
+The backend enforces this cap before accepting uploads, training images, sample jobs, or DXF revisions. The admin page shows used storage, quota, percent used, and remaining free space.

@@ -115,6 +115,9 @@ export type AdminSummary = {
   dxf_message_count: number;
   job_count: number;
   storage_bytes: number;
+  storage_quota_bytes: number;
+  storage_available_bytes: number;
+  storage_usage_percent: number;
   storage_path: string;
   latest_uploads: AdminLatestUpload[];
 };

@@ -50,6 +50,9 @@ class AdminSummary(BaseModel):
     dxf_message_count: int
     job_count: int
     storage_bytes: int
+    storage_quota_bytes: int
+    storage_available_bytes: int
+    storage_usage_percent: float
     storage_path: str
     latest_uploads: list[AdminLatestUpload]
 

@@ -8,6 +8,7 @@ It includes:
 - A FastAPI backend that runs an image-processing pipeline with OpenCV, scikit-image skeletonization, and ezdxf output.
 - Secure login with a seeded admin account and HTTP-only session cookies.
 - Persistent uploaded image storage and SQLite metadata tracking.
+- A default 9.5 GB storage quota guard to stay below Cloudflare R2's 10 GB free storage allowance.
 - A CAD chat workflow that creates revised DXF versions from natural-language edit requests.
 - A chat-based image configuration workflow that can adjust extraction settings before DXF generation.
 - An MCP server exposing the CAD and tracing tools for external AI agents.
@@ -112,6 +113,14 @@ backend/storage/uploads/slabs/{folder_id}/{upload_id}.{extension}
 ```
 
 The SQLite database at `backend/storage/veincad.sqlite3` tracks each upload, its folder, original name, generated job, preview, mask, and DXF path. The UI lets you create folders, choose a destination folder before uploading, and browse/open stored uploads later.
+
+To avoid accidental Cloudflare R2 overage charges, the backend defaults to a 9.5 GB app storage quota:
+
+```text
+VEINCAD_STORAGE_QUOTA_GB=9.5
+```
+
+Uploads, training samples, sample processing, and DXF revisions are rejected before writing new files if they would push storage beyond the quota. Keep this value below `10` unless you intentionally accept possible storage charges.
 
 ## OpenCV Tuning
 

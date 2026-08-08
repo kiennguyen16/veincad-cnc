@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "VeinCAD CNC"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     max_upload_mb: int = Field(default=25, ge=1, le=200)
+    storage_quota_gb: float = Field(default=9.5, gt=0, le=10)
     storage_dir: Path = Path(__file__).resolve().parents[1] / "storage"
     sample_dir: Path = Path(__file__).resolve().parents[1] / "data" / "samples"
     database_path: Path | None = None
@@ -49,6 +50,10 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024
+
+    @property
+    def storage_quota_bytes(self) -> int:
+        return int(self.storage_quota_gb * 1_000_000_000)
 
     @property
     def storage_root(self) -> Path:
