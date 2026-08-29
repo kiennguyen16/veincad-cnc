@@ -104,6 +104,16 @@ def app_storage(config: Annotated[Settings, Depends(app_settings)]) -> AppStorag
     return AppStorage(config)
 
 
+@app.get("/")
+def root() -> dict[str, object]:
+    return {
+        "ok": True,
+        "service": settings.app_name,
+        "message": "VeinCAD CNC backend is running.",
+        "health": "/api/v1/health",
+    }
+
+
 @app.get("/health")
 @app.get("/api/v1/health")
 def health() -> dict[str, object]:
