@@ -28,13 +28,12 @@ def authenticate_user(db: Database, email: str, password: str) -> dict | None:
 
 
 def set_session_cookie(response: Response, settings: Settings, token: str) -> None:
-    same_site = "none" if settings.auth_cookie_secure else "lax"
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
         httponly=True,
         secure=settings.auth_cookie_secure,
-        samesite=same_site,
+        samesite="lax",
         max_age=settings.session_days * 24 * 60 * 60,
         path="/",
     )

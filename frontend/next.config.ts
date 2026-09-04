@@ -1,13 +1,10 @@
 import type { NextConfig } from "next";
 
-const defaultApiProxyTarget =
-  process.env.NODE_ENV === "production"
-    ? "https://veincad-cnc.onrender.com"
-    : "http://127.0.0.1:8000";
+const defaultApiProxyTarget = "http://127.0.0.1:8000";
 const apiProxyTarget = process.env.API_PROXY_TARGET || defaultApiProxyTarget;
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   outputFileTracingRoot: __dirname,
   async rewrites() {
     return [

@@ -1,5 +1,19 @@
 # Hosting & Domain Guide
 
+## Current Recommended Plan
+
+Use **Vercel for the frontend** and **Hugging Face Spaces for the backend**.
+
+The exact checklist is in `VERCEL_HUGGINGFACE_DEPLOYMENT.md`.
+
+Important:
+
+- Vercel project root directory: `frontend`
+- Hugging Face Spaces SDK: `Docker`
+- Hugging Face backend port: `7860`
+- Frontend env: `API_PROXY_TARGET=https://<your-hf-space>.hf.space`
+- Keep `NEXT_PUBLIC_API_BASE_URL` blank so login cookies work through the Vercel proxy.
+
 ## Free Temporary Public Demo
 
 Cloudflare Quick Tunnel can expose the complete local application through one
