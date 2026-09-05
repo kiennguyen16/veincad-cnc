@@ -1,5 +1,10 @@
 # Railway Deployment Guide
 
+> Current hosting note: VeinCAD CNC is now using Vercel for the frontend and
+> Render for the backend. Keep this Railway guide only as a fallback/reference.
+> If Railway shows an image build failure, first check the service root and
+> Dockerfile settings below before assuming the application code is broken.
+
 This is the fastest path to host VeinCAD CNC away from the laptop while keeping costs controlled.
 
 ## Target Architecture
@@ -34,6 +39,30 @@ Set:
 Root Directory: /backend
 Config File Path: /backend/railway.toml
 ```
+
+Do not set the backend root directory to the repository root while using
+`backend/Dockerfile`. That Dockerfile expects the Docker build context to be the
+`backend` folder. A mismatched root/Dockerfile context can cause Railway image
+build failures because `COPY requirements.txt .` cannot find the backend
+requirements file.
+
+Valid backend combinations:
+
+```text
+Root Directory: /backend
+Dockerfile Path: Dockerfile
+Config File Path: /backend/railway.toml
+```
+
+or, if intentionally building from the repository root:
+
+```text
+Root Directory: /
+Dockerfile Path: Dockerfile
+```
+
+The root `Dockerfile` is mainly for Hugging Face Docker-style builds and copies
+files from `backend/`.
 
 Generate a public Railway domain for the backend. Copy it; it will look similar to:
 
@@ -87,6 +116,9 @@ Set:
 Root Directory: /frontend
 Config File Path: /frontend/railway.toml
 ```
+
+Do not set the frontend root directory to `frontend/frontend`. The repository
+has only one frontend folder.
 
 Generate a public Railway domain for the frontend. Copy it; it will look similar to:
 
