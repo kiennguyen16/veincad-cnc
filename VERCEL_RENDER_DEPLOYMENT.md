@@ -7,6 +7,24 @@ This is the lowest-friction free showcase path for VeinCAD CNC now that Hugging 
 - **File storage:** Cloudflare R2, capped by `VEINCAD_STORAGE_QUOTA_GB=9.5`.
 - **Database:** SQLite on the backend container for demo users and metadata. Render free services have ephemeral disk, so move the database to Postgres later if you need durable user records.
 
+## Architecture Decision
+
+Do not move the current backend onto Vercel as serverless functions. The backend
+does image processing and CAD generation with Python, OpenCV, scikit-image,
+ezdxf, uploads, generated files, and future model-assisted DXF edits. That work
+belongs on a real Python web service such as Render, Hugging Face Docker Spaces
+with PRO, Fly.io, Railway, or another container host.
+
+Vercel should remain the public frontend. It proxies API and file requests to
+the backend:
+
+```text
+Browser -> Vercel frontend -> Render backend -> Cloudflare R2
+```
+
+This keeps the public URL simple while preserving the backend runtime needed by
+the OpenCV/CAD pipeline.
+
 ## 1. Backend On Render
 
 Use the existing Render backend service if it is already live:

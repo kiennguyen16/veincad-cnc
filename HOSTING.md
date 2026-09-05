@@ -16,6 +16,29 @@ Important:
 - Frontend env: `API_PROXY_TARGET=https://veincad-cnc.onrender.com`
 - Keep `NEXT_PUBLIC_API_BASE_URL` blank so login cookies work through the Vercel proxy.
 
+## Architecture Decision: Why Vercel Is Frontend Only
+
+Vercel hosts the Next.js frontend only. The current image-processing and CAD
+pipeline should not run entirely on Vercel because it depends on a long-running
+Python backend with FastAPI, OpenCV, scikit-image, ezdxf, file uploads,
+generated previews, masks, DXF files, and future AI/CAD chat work.
+
+Vercel serverless functions are a good fit for lightweight API routes, but this
+application needs backend processing time, Python native dependencies, and
+persistent generated artifacts. Keep this split unless the backend is rewritten
+into a serverless-compatible architecture:
+
+```text
+Vercel = Next.js frontend UI
+Render = Python/FastAPI/OpenCV/DXF backend
+Cloudflare R2 = uploaded images, masks, previews, training data, and DXF files
+```
+
+Users should still use the Vercel app URL. The frontend proxies `/api/*`,
+`/storage/*`, and `/sample_images/*` to the backend through
+`API_PROXY_TARGET`, so the backend can be changed later without changing the
+public app URL.
+
 ## Free Temporary Public Demo
 
 Cloudflare Quick Tunnel can expose the complete local application through one
