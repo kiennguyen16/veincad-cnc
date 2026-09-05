@@ -1,6 +1,6 @@
 # Vercel Frontend + Hugging Face Backend Deployment
 
-This is the recommended low-cost showcase deployment for VeinCAD CNC:
+This is a low-cost showcase deployment for VeinCAD CNC **only if your Hugging Face account has PRO enabled**:
 
 - **Frontend:** Vercel, deployed from the `frontend` directory.
 - **Backend:** Hugging Face Spaces, Docker SDK, deployed from the repository root `Dockerfile`.
@@ -9,12 +9,16 @@ This is the recommended low-cost showcase deployment for VeinCAD CNC:
 
 ## 1. Deploy Backend To Hugging Face Spaces
 
+Important: Hugging Face currently requires **PRO for personal accounts** to create new Gradio or Docker Spaces. Free accounts can create Static Spaces, but Static Spaces cannot run the FastAPI/OpenCV backend.
+
+If Docker is marked **Paid** on the New Space page, use Render's free web service for the backend instead, or subscribe to Hugging Face PRO.
+
 1. Go to [Hugging Face Spaces](https://huggingface.co/spaces).
 2. Click **Create new Space**.
 3. Choose:
    - **Space name:** `veincad-cnc` or similar
    - **SDK:** `Docker`
-   - **Hardware:** Free CPU for showcase testing
+   - **Hardware:** CPU Basic
    - **Visibility:** Private while testing, Public only when you are ready
 4. Upload or connect this repository so the Space can build from the root `Dockerfile`.
 5. The backend must listen on port `7860`; the root `Dockerfile` already does this.
@@ -142,4 +146,3 @@ The backend checks this before accepting uploads, training images, generated mas
 - `frontend/next.config.ts`: proxies `/api/*`, `/storage/*`, and `/sample_images/*` to the backend using `API_PROXY_TARGET`.
 - `Dockerfile`: Hugging Face backend Docker image, listening on port `7860`.
 - `.dockerignore`: keeps personal docs, local storage, frontend builds, and development artifacts out of the backend Docker build context.
-

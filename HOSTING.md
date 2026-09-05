@@ -2,16 +2,18 @@
 
 ## Current Recommended Plan
 
-Use **Vercel for the frontend** and **Hugging Face Spaces for the backend**.
+Use **Vercel for the frontend** and **Render Free Web Service for the backend** unless you subscribe to Hugging Face PRO.
 
-The exact checklist is in `VERCEL_HUGGINGFACE_DEPLOYMENT.md`.
+The exact free checklist is in `VERCEL_RENDER_DEPLOYMENT.md`.
+
+Hugging Face Docker Spaces are supported by this repo, but Hugging Face currently requires PRO for personal accounts to create Docker/Gradio compute Spaces. See `VERCEL_HUGGINGFACE_DEPLOYMENT.md` only if you choose Hugging Face PRO.
 
 Important:
 
 - Vercel project root directory: `frontend`
-- Hugging Face Spaces SDK: `Docker`
-- Hugging Face backend port: `7860`
-- Frontend env: `API_PROXY_TARGET=https://<your-hf-space>.hf.space`
+- Render backend root directory: `backend`
+- Render backend runtime: `Docker`
+- Frontend env: `API_PROXY_TARGET=https://veincad-cnc.onrender.com`
 - Keep `NEXT_PUBLIC_API_BASE_URL` blank so login cookies work through the Vercel proxy.
 
 ## Free Temporary Public Demo
